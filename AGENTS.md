@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Simulation lives in `src/engine/` as pure, deterministic TypeScript with no React imports — so it can be unit-tested and explained line by line.
+- `src/pages/` holds page-level view components; `src/routes/` files stay thin and only render a page — routing is TanStack's file router, not `src/pages`.
+- `SPEC.md` at the repo root is the source of truth for machine behavior and reference results — later work must match it.
+- The app is a static front-end with no network requests or browser storage — fonts are system stacks and graphics are inline SVG.

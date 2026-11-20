@@ -1,23 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ExplainerPage } from "@/pages/ExplainerPage";
 
-// The home route ships no og:image, so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "The Cache Line — Why memory order makes code faster" },
+      {
+        name: "description",
+        content:
+          "Your CPU never reads one byte. It grabs a whole row. An interactive race that shows why reading memory in order is several times faster.",
+      },
+      { property: "og:title", content: "The Cache Line — Why memory order makes code faster" },
+      {
+        property: "og:description",
+        content:
+          "Your CPU never reads one byte. It grabs a whole row. See why that makes some programs several times faster.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: ExplainerPage,
 });
-
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
