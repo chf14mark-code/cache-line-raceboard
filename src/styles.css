@@ -176,3 +176,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Diagonal hatch: marks RAM cells whose line was cached before and then evicted. */
+@utility bg-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    oklch(1 0 0 / 10%) 0 2px,
+    transparent 2px 5px
+  );
+}

@@ -6,3 +6,4 @@ export * from "./cache";
 export * from "./machine";
 export * from "./programs";
 export * from "./selftest";
+export * from "./describe";

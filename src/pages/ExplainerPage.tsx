@@ -1,56 +1,60 @@
 import { AppHeader } from "@/components/AppHeader";
-import { Placeholder } from "@/components/Placeholder";
-import { RaceLanePlaceholder } from "@/components/RaceLanePlaceholder";
+import { RaceControls } from "@/components/RaceControls";
+import { RaceLane } from "@/components/RaceLane";
+import { RaceResults } from "@/components/RaceResults";
+import { PROGRAM_A, PROGRAM_B, type Program } from "@/engine";
+import { useRace } from "@/hooks/use-race";
 
-/**
- * Tier 1 layout skeleton. Everything is a placeholder for now:
- * no numbers are shown until the engine (src/engine) computes them.
- */
+/** Indexes of instructions whose text differs between two programs. */
+function differingLines(p: Program, q: Program): ReadonlySet<number> {
+  const out = new Set<number>();
+  for (let i = 0; i < Math.max(p.length, q.length); i++) {
+    if (p[i]?.text !== q[i]?.text) out.add(i);
+  }
+  return out;
+}
+
+/** How far the address register R2 moves each loop, read from the program itself. */
+function strideText(program: Program): string {
+  const step = program.find((ins) => ins.op === "ADD" && ins.rd === 2 && ins.src.kind === "imm");
+  if (!step || step.op !== "ADD" || step.src.kind !== "imm") return "";
+  const n = step.src.value;
+  return `next address = address + ${n} (${n === 1 ? "the neighbouring cell" : `skip ${n - 1} cells`})`;
+}
+
+const DIFFERS = differingLines(PROGRAM_A.program, PROGRAM_B.program);
+
+/** Tier 1: two machines race on one shared clock; every number comes from the engine. */
 export function ExplainerPage() {
+  const race = useRace();
+  const { a, b } = race.view;
+  const clock = Math.max(a.snapshot.cycle, b.snapshot.cycle);
+
   return (
-    <div className="flex min-h-dvh flex-col bg-background bg-chip-grid lg:h-dvh lg:overflow-hidden">
+    <div className="flex min-h-dvh flex-col bg-background bg-chip-grid">
       <AppHeader />
 
-      <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 lg:min-h-0">
-        <div className="max-w-3xl">
-          <p className="font-mono text-xs uppercase tracking-wider text-primary">The question</p>
-          <p className="mt-1 text-lg font-semibold text-foreground sm:text-xl">
-            Two programs each read 16 numbers from memory. Same instructions, one tiny difference.
-            Which one finishes first?
-          </p>
+      <main className="flex flex-1 flex-col gap-3 px-4 py-3 sm:px-6">
+        <RaceControls
+          status={race.status}
+          speed={race.speed}
+          clock={clock}
+          onStart={race.start}
+          onPause={race.pause}
+          onReset={race.reset}
+          onSpeed={race.setSpeed}
+        />
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <RaceLane lane={PROGRAM_A} tone="a" summary={strideText(PROGRAM_A.program)} view={a} differs={DIFFERS} />
+          <RaceLane lane={PROGRAM_B} tone="b" summary={strideText(PROGRAM_B.program)} view={b} differs={DIFFERS} />
         </div>
 
-        <div className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[1fr_16rem]">
-          <Placeholder label="Race lanes" hint="Tier 1" className="gap-3">
-            <div className="flex flex-1 flex-col justify-center gap-3">
-              <RaceLanePlaceholder
-                letter="A"
-                name="Read in order"
-                description="address = address + 1"
-                tone="a"
-              />
-              <RaceLanePlaceholder
-                letter="B"
-                name="Jump around"
-                description="address = address + 4"
-                tone="b"
-              />
-            </div>
-          </Placeholder>
-
-          <Placeholder label="Clock" hint="shared" className="items-stretch">
-            <div className="flex flex-1 flex-col items-center justify-center gap-1 py-4">
-              <span className="font-mono text-4xl font-semibold text-foreground/40">—</span>
-              <span className="font-mono text-xs text-muted-foreground">cycles</span>
-            </div>
-          </Placeholder>
-        </div>
-
-        <Placeholder label="Result" hint="computed by the simulator">
-          <p className="mt-1 text-sm text-muted-foreground">
-            Run the race to see how many cycles each program needs.
-          </p>
-        </Placeholder>
+        <RaceResults
+          a={{ program: PROGRAM_A, tone: "a", view: a }}
+          b={{ program: PROGRAM_B, tone: "b", view: b }}
+          status={race.status}
+        />
       </main>
     </div>
   );
