@@ -71,6 +71,20 @@ use pre-recorded animations.**
 5. One instruction at a time; ALU instructions always take exactly 1 cycle.
 6. Tiny sizes (256-byte memory, a few cache lines) so everything fits on screen.
 
+### Engine clarifications (behaviour the spec above leaves open)
+- `reset()` restarts PC, registers, RAM, clock and metrics but keeps the caches warm;
+  `flushCache()` empties them. "Run again without flushing" = `reset()` then run.
+- `lastUsed` is an access counter (1 = first LOAD/STORE served), not a cycle number, so LRU
+  order survives `reset()`.
+- Memory cells hold 16-bit values (cell 255 holds 256).
+- A LOAD/STORE searches the caches in its first cycle and receives the line in its last cycle;
+  fills/evictions happen then. Every cycle in between the CPU reports `stalling`.
+- A LOAD/STORE to an address >= 256 halts the machine with a runtime error.
+- Parser: `;` or `#` start a comment, blank lines are ignored, an optional leading instruction
+  number (as in the listings below) must match the real 0-based index, JNZ targets must exist.
+- Full mode, program B run twice without flushing = 227 cycles (16 L2 hits; L1 holds only 8
+  of B's 16 lines and LRU always evicts the next one needed).
+
 ### Metrics
 - Total cycles.
 - Memory-wait cycles = sum of LOAD/STORE latencies.
