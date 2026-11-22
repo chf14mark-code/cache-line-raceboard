@@ -19,7 +19,7 @@ export function CacheBus({
   const f = snapshot.inFlight;
   const first = snapshot.levels[0];
   const hitNow = f !== null && f.level === first?.name;
-  const label = f === null ? "bus idle" : hitNow ? `⚡ ${first?.name} hit` : `${first?.name} miss → asking ${f.level}`;
+  const label = f === null ? "" : hitNow ? "⚡ already in the cache (hit)" : `not in the cache (miss) → fetching from ${f.level}`;
   const pulseMs = accessDurationMs(first?.latency ?? 1);
 
   return (

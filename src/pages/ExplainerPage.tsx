@@ -1,8 +1,12 @@
 import { AppHeader } from "@/components/AppHeader";
 import { RaceControls } from "@/components/RaceControls";
 import { RaceLane } from "@/components/RaceLane";
-import { RaceResults } from "@/components/RaceResults";
-import { PROGRAM_A, PROGRAM_B, type Program } from "@/engine";
+import { useMemo, useState } from "react";
+import { PredictPrompt } from "@/components/PredictPrompt";
+import { ResultBanner } from "@/components/ResultBanner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { PROGRAM_A, PROGRAM_B, makeJumpProgram, type Program } from "@/engine";
+import { outcomeOf, type LaneId } from "@/lib/race";
 import { useRace } from "@/hooks/use-race";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
@@ -20,24 +24,28 @@ function strideText(program: Program): string {
   const step = program.find((ins) => ins.op === "ADD" && ins.rd === 2 && ins.src.kind === "imm");
   if (!step || step.op !== "ADD" || step.src.kind !== "imm") return "";
   const n = step.src.value;
-  return `next address = address + ${n} (${n === 1 ? "the neighbouring cell" : `skip ${n - 1} cells`})`;
+  return n === 1 ? "reads the next cell each time" : `skips ahead ${n} cells each time`;
 }
 
-const DIFFERS = differingLines(PROGRAM_A.program, PROGRAM_B.program);
 
 /** Tier 1: two machines race on one shared clock; every number comes from the engine. */
 export function ExplainerPage() {
-  const race = useRace();
+  const [step, setStep] = useState(4);
+  const jump = useMemo(() => (step === 4 ? PROGRAM_B : makeJumpProgram(step)), [step]);
+  const differs = useMemo(() => differingLines(PROGRAM_A.program, PROGRAM_B.program), []);
+  const [prediction, setPrediction] = useState<LaneId | null>(null);
+  const race = useRace(jump.program);
   const reduced = useReducedMotion();
   const { a, b } = race.view;
   const clock = Math.max(a.snapshot.cycle, b.snapshot.cycle);
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="flex min-h-dvh flex-col bg-background bg-chip-grid">
       <AppHeader />
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-3 sm:px-6">
-        <RaceControls
+        {race.status !== "finished" && <RaceControls
           status={race.status}
           speed={race.speed}
           clock={clock}
@@ -47,19 +55,29 @@ export function ExplainerPage() {
           onSpeed={race.setSpeed}
           proportional={race.proportional}
           onProportional={race.setProportional}
-        />
+          canStart={prediction !== null}
+        >
+          {race.status === "ready" && <PredictPrompt prediction={prediction} onPredict={setPrediction} disabled={false} />}
+        </RaceControls>}
 
         <div className="grid gap-3 lg:grid-cols-2">
-          <RaceLane lane={PROGRAM_A} tone="a" summary={strideText(PROGRAM_A.program)} view={a} anim={race.anim.a} speed={race.speed} reduced={reduced} differs={DIFFERS} />
-          <RaceLane lane={PROGRAM_B} tone="b" summary={strideText(PROGRAM_B.program)} view={b} anim={race.anim.b} speed={race.speed} reduced={reduced} differs={DIFFERS} />
+          <RaceLane lane={PROGRAM_A} tone="a" summary={strideText(PROGRAM_A.program)} view={a} anim={race.anim.a} speed={race.speed} reduced={reduced} differs={differs} />
+          <RaceLane lane={jump} tone="b" summary={strideText(jump.program)} view={b} anim={race.anim.b} speed={race.speed} reduced={reduced} differs={differs} />
         </div>
 
-        <RaceResults
-          a={{ program: PROGRAM_A, tone: "a", view: a }}
-          b={{ program: PROGRAM_B, tone: "b", view: b }}
-          status={race.status}
-        />
+        {race.status === "finished" && (
+          <ResultBanner
+            a={outcomeOf(a.snapshot)}
+            b={outcomeOf(b.snapshot)}
+            prediction={prediction}
+            step={step}
+            lineSize={a.snapshot.config.lineSize}
+            onStep={setStep}
+            onRaceAgain={race.start}
+          />
+        )}
       </main>
     </div>
+    </TooltipProvider>
   );
 }

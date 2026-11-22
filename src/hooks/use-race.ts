@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classifyCycle, sharedCycleMs, type TimeMode } from "@/animation/pacing";
 import { AnimationTracker, type LaneAnimation } from "@/animation/tracker";
-import { createRace, isRaceFinished, resetRace, stepRace, viewRace, type LaneId, type Race } from "@/lib/race";
+import type { Program } from "@/engine";
+import { advanceRace, createRace, isRaceFinished, resetRace, stepRace, viewRace, type LaneId, type Race } from "@/lib/race";
 
 export type RaceStatus = "ready" | "running" | "paused" | "finished";
 
@@ -26,9 +27,14 @@ function viewAnimations(t: Trackers): Readonly<Record<LaneId, LaneAnimation>> {
  * Each step advances both machines by exactly one cycle, then waits as long as
  * the pacing rule says that cycle should stay on screen (scaled by speed).
  */
-export function useRace() {
+export function useRace(programB: Program) {
   const raceRef = useRef<Race | null>(null);
-  if (raceRef.current === null) raceRef.current = createRace();
+  const programRef = useRef<Program>(programB);
+  if (raceRef.current === null || programRef.current !== programB) {
+    // A new jump step: rebuild the race from scratch (cold caches, cycle 0).
+    raceRef.current = createRace(programB);
+    programRef.current = programB;
+  }
   const race = raceRef.current;
 
   const trackersRef = useRef<Trackers | null>(null);
@@ -96,6 +102,27 @@ export function useRace() {
   }, [status, race, trackers]);
 
   /** Cold caches, cycle 0, no marks. */
+  // When the program changes, show the fresh race and go back to the start line.
+  // If a race had already finished, run the new one straight to the end so the
+  // result updates live; otherwise go back to the start line.
+  const statusRef = useRef<RaceStatus>("ready");
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+  const firstRace = useRef(race);
+  useEffect(() => {
+    if (firstRace.current === race) return;
+    firstRace.current = race;
+    trackers.a.reset();
+    trackers.b.reset();
+    clockRef.current = { budget: 0, pendingMs: null };
+    const finished = statusRef.current === "finished";
+    if (finished) advanceRace(race, Number.MAX_SAFE_INTEGER);
+    setView(viewRace(race));
+    setAnim(viewAnimations(trackers));
+    setStatus(finished ? "finished" : "ready");
+  }, [race, trackers]);
+
   const restart = useCallback(() => {
     resetRace(race);
     trackers.a.reset();

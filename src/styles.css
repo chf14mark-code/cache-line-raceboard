@@ -242,3 +242,15 @@
 @utility anim-evict-out {
   animation: evict-out var(--anim-ms, 600ms) ease-in forwards;
 }
+
+/* Start button breathes gently until the first race begins (off under reduced motion). */
+@keyframes start-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 55%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--primary) 0%, transparent); }
+}
+@utility animate-start-pulse {
+  animation: start-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-start-pulse { animation: none !important; outline: 2px solid var(--primary); outline-offset: 2px; }
+}

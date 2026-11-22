@@ -47,3 +47,20 @@ export const PROGRAM_B: ReferenceProgram = {
   source: PROGRAM_B_SOURCE,
   program: parseOrThrow(PROGRAM_B_SOURCE),
 };
+
+/** Smallest and largest step the "Jump around" lane may use. */
+export const MIN_JUMP_STEP = 1;
+export const MAX_JUMP_STEP = 4;
+
+/**
+ * The "Jump around" program with any step from 1 to 4: identical to A except line 5
+ * adds `step` to the address. step 4 gives exactly program B.
+ */
+export function makeJumpProgram(step: number): ReferenceProgram {
+  const s = Math.min(MAX_JUMP_STEP, Math.max(MIN_JUMP_STEP, Math.round(step)));
+  const source = PROGRAM_A_SOURCE.replace(
+    "5 ADD R2, 1       ; next address: one cell further",
+    `5 ADD R2, ${s}       ; next address: ${s} cell${s === 1 ? "" : "s"} further`,
+  );
+  return { id: "B", name: "Jump around", source, program: parseOrThrow(source) };
+}

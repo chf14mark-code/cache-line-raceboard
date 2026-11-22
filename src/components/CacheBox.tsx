@@ -1,3 +1,4 @@
+import { Term } from "./Term";
 import type { Ref } from "react";
 import { cacheCaption } from "@/animation/captions";
 import type { LaneAnimation } from "@/animation/tracker";
@@ -28,7 +29,9 @@ export function CacheBox({
 
   return (
     <div className="rounded-md border border-border bg-surface-raised p-2">
-      <BoxTitle note={`${l1.capacity} lines · ${l1.latency} cycles · LRU`}>{l1.name} cache</BoxTitle>
+      <BoxTitle note={`${l1.capacity} groups · ${l1.latency} cycles`}>
+        <Term k="cache">Cache</Term> (small, fast)
+      </BoxTitle>
       <div ref={targetRef} role="table" aria-label={`${l1.name} cache contents`} className="flex flex-col gap-0.5 font-mono text-[11px]">
         {l1.lines.map((line, slot) => (
           <CacheRow

@@ -141,3 +141,14 @@ These values are test assertions for the engine, never display values.
 - Optional "Proportional time (80ms per cycle)" toggle, off by default.
 - Speed selector (0.25x–10x) scales all wall-clock time and animation lengths.
 - Shared clock: each cycle lasts as long as the lane that needs the most time for it.
+
+## First-run flow (Tier 1)
+- On load: hook question, two lanes, prediction prompt ("Which lane will finish first?") and a
+  pulsing Start race button; speed/time options sit behind "Options". The prediction lives only
+  in React memory.
+- After both lanes finish, the controls bar is replaced by a result banner whose text is built
+  from the finished snapshots (`resultSentences` in `src/lib/race.ts`), the prediction verdict,
+  the one-line cache-line idea and a disabled "Explore deeper" link.
+- A "Jump step" slider (1–4) rebuilds the jumping lane with `makeJumpProgram(step)` and re-runs
+  the race to the end instantly; step 4 is program B.
+- Tooltips explain cache, RAM, hit, miss and cycle in plain English.

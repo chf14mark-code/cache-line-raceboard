@@ -1,3 +1,4 @@
+import { Term } from "./Term";
 import { useState, type CSSProperties } from "react";
 import { animStyle } from "@/animation/css";
 import { ARRIVAL_GLOW_MS } from "@/animation/pacing";
@@ -41,7 +42,7 @@ export function RamGrid({
   return (
     <div className="rounded-md border border-border bg-surface-raised p-2" onPointerLeave={() => setPointed(null)}>
       <BoxTitle note={`${snapshot.config.ramLatency} cycles`}>
-        RAM {hexAddress(0)}–{hexAddress(VISIBLE_CELLS - 1)}
+        <Term k="RAM">RAM</Term> {hexAddress(0)}–{hexAddress(VISIBLE_CELLS - 1)}
       </BoxTitle>
       <div className="flex flex-col gap-0.5">
         {Array.from({ length: rows }, (_, line) => {
