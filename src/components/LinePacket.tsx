@@ -49,7 +49,7 @@ export function LinePacket({
       aria-hidden="true"
       className="pointer-events-none absolute left-0 top-0 z-30 opacity-0"
     >
-      <div className="mb-0.5 whitespace-nowrap font-mono text-[9px] text-primary">line {f.lineIndex} · {lineSize} cells</div>
+      <div className="mb-0.5 w-fit whitespace-nowrap rounded bg-card px-1 font-mono text-[9px] text-primary">line {f.lineIndex} · {lineSize} cells</div>
       <div className="flex gap-0.5 rounded border-2 border-primary bg-card p-px shadow-[0_0_14px_2px_color-mix(in_oklab,var(--primary)_60%,transparent)]">
         {Array.from({ length: lineSize }, (_, k) => (
           <span key={k} className="flex h-4 w-8 items-center justify-center rounded-sm bg-primary/25 font-mono text-[10px] font-semibold tabular-nums text-foreground">

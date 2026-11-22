@@ -1,7 +1,7 @@
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SPEEDS, type RaceStatus, type Speed } from "@/hooks/use-race";
-import { RamLegend } from "./RamLegend";
+import { Switch } from "@/components/ui/switch";
 
 const START_LABEL: Record<RaceStatus, string> = {
   ready: "Start race",
@@ -19,6 +19,8 @@ export function RaceControls({
   onPause,
   onReset,
   onSpeed,
+  proportional,
+  onProportional,
 }: {
   status: RaceStatus;
   speed: Speed;
@@ -28,6 +30,8 @@ export function RaceControls({
   onPause: () => void;
   onReset: () => void;
   onSpeed: (s: Speed) => void;
+  proportional: boolean;
+  onProportional: (on: boolean) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card px-3 py-2">
@@ -69,7 +73,10 @@ export function RaceControls({
         <span className="text-xs text-muted-foreground">cycles</span>
       </div>
 
-      <RamLegend className="lg:ml-auto" />
+      <label className="flex cursor-pointer items-center gap-2 font-mono text-[11px] text-muted-foreground lg:ml-auto">
+        <Switch checked={proportional} onCheckedChange={onProportional} />
+        Proportional time (80ms per cycle)
+      </label>
     </div>
   );
 }

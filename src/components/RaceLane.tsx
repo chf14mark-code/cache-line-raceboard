@@ -74,7 +74,7 @@ export function RaceLane({
         {!reduced && <LinePacket snapshot={view.snapshot} containerRef={bodyRef} targetRef={cacheRef} getRowEl={getRowEl} />}
       </div>
 
-      <footer className="flex items-center justify-between gap-2 border-t border-border pt-2">
+      <footer className="flex items-center justify-between gap-2 border-t border-border pt-1.5">
         <StallIndicator snapshot={view.snapshot} />
         <button
           type="button"

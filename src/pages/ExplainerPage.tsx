@@ -4,6 +4,7 @@ import { RaceLane } from "@/components/RaceLane";
 import { RaceResults } from "@/components/RaceResults";
 import { PROGRAM_A, PROGRAM_B, type Program } from "@/engine";
 import { useRace } from "@/hooks/use-race";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 /** Indexes of instructions whose text differs between two programs. */
 function differingLines(p: Program, q: Program): ReadonlySet<number> {
@@ -27,6 +28,7 @@ const DIFFERS = differingLines(PROGRAM_A.program, PROGRAM_B.program);
 /** Tier 1: two machines race on one shared clock; every number comes from the engine. */
 export function ExplainerPage() {
   const race = useRace();
+  const reduced = useReducedMotion();
   const { a, b } = race.view;
   const clock = Math.max(a.snapshot.cycle, b.snapshot.cycle);
 
@@ -43,11 +45,13 @@ export function ExplainerPage() {
           onPause={race.pause}
           onReset={race.reset}
           onSpeed={race.setSpeed}
+          proportional={race.proportional}
+          onProportional={race.setProportional}
         />
 
         <div className="grid gap-3 lg:grid-cols-2">
-          <RaceLane lane={PROGRAM_A} tone="a" summary={strideText(PROGRAM_A.program)} view={a} differs={DIFFERS} />
-          <RaceLane lane={PROGRAM_B} tone="b" summary={strideText(PROGRAM_B.program)} view={b} differs={DIFFERS} />
+          <RaceLane lane={PROGRAM_A} tone="a" summary={strideText(PROGRAM_A.program)} view={a} anim={race.anim.a} speed={race.speed} reduced={reduced} differs={DIFFERS} />
+          <RaceLane lane={PROGRAM_B} tone="b" summary={strideText(PROGRAM_B.program)} view={b} anim={race.anim.b} speed={race.speed} reduced={reduced} differs={DIFFERS} />
         </div>
 
         <RaceResults

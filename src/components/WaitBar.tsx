@@ -11,8 +11,8 @@ export function WaitBar({ snapshot }: { snapshot: MachineSnapshot }) {
   return (
     <div className="rounded-md border border-border bg-surface-raised p-2">
       <div className="mb-1 flex items-baseline justify-between gap-2 font-mono text-[11px]">
-        <span className={f ? "text-foreground" : "text-muted-foreground"}>{label}</span>
-        <span className="text-muted-foreground">waited {snapshot.metrics.memoryWaitCycles} total</span>
+        <span className={`truncate ${f ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
+        <span className="shrink-0 whitespace-nowrap text-muted-foreground">total {snapshot.metrics.memoryWaitCycles}</span>
       </div>
       <div
         role="progressbar"

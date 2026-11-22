@@ -132,3 +132,12 @@ These values are test assertions for the engine, never display values.
 - `src/components/` — reusable UI pieces.
 - `src/pages/` — page-level views composed from components.
 - `src/routes/` — thin route files that render a page (framework routing).
+
+## Presentation time model (animation layer, not the machine)
+- Lives in `src/animation/`; reads engine events only and never changes engine behaviour.
+- Default "compressed" time: one memory access takes a log-scaled wall time
+  (L1 hit 3 cycles ≈ 150 ms, RAM miss 100 cycles ≈ 900 ms at 1x); 1-cycle instructions get
+  the hit pace (50 ms). The counter still steps through every real cycle.
+- Optional "Proportional time (80ms per cycle)" toggle, off by default.
+- Speed selector (0.25x–10x) scales all wall-clock time and animation lengths.
+- Shared clock: each cycle lasts as long as the lane that needs the most time for it.

@@ -38,6 +38,8 @@ export function RamCell({
         className,
       )}
       {...rest}
-    />
+    >
+      {value}
+    </span>
   );
 }
