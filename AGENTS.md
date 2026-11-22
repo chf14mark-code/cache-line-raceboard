@@ -38,3 +38,4 @@ use the editor.
 - Reference checks live once in `src/engine/selftest.ts`; `/selftest` displays them and `src/engine/engine.test.ts` asserts them, so the page and the tests can never disagree.
 - The race view advances both lanes only through `src/lib/race.ts` (`advanceRace` ticks both machines together); components just render engine snapshots — so the two cycle counters always share one clock.
 - Animation lives in `src/animation/` and is driven only by engine events/snapshots (pacing decides wall-clock time per cycle; the tracker turns events into marks) — the engine never knows about timing or visuals.
+- The landing view is the guided story in `src/story/` (one machine per step, paused by event-based rules); the two-lane race page stays reachable from it — so newcomers see one thing at a time.

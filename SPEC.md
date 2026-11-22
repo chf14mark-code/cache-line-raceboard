@@ -152,3 +152,11 @@ These values are test assertions for the engine, never display values.
 - A "Jump step" slider (1–4) rebuilds the jumping lane with `makeJumpProgram(step)` and re-runs
   the race to the end instantly; step 4 is program B.
 - Tooltips explain cache, RAM, hit, miss and cycle in plain English.
+
+## Default view: guided story (supersedes "First-run flow" as the landing view)
+- `/` opens a 3-step story, one machine at a time, in everyday words: desk (cache), warehouse
+  (RAM), tick (cycle). Step 1 runs A and pauses after the first miss and first hit; step 2 runs
+  B and pauses after the first two misses; step 3 shows both computed totals and the ratio.
+- A big caption bar narrates engine events (`src/animation/narration.ts`).
+- Registers, program, hit rate and speed sit behind "Show details". The two-lane race (with
+  prediction, banner and step slider) is reachable via "Race both at once".

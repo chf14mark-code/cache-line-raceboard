@@ -29,7 +29,7 @@ function strideText(program: Program): string {
 
 
 /** Tier 1: two machines race on one shared clock; every number comes from the engine. */
-export function ExplainerPage() {
+export function ExplainerPage({ onBack }: { onBack?: () => void } = {}) {
   const [step, setStep] = useState(4);
   const jump = useMemo(() => (step === 4 ? PROGRAM_B : makeJumpProgram(step)), [step]);
   const differs = useMemo(() => differingLines(PROGRAM_A.program, PROGRAM_B.program), []);
@@ -43,6 +43,11 @@ export function ExplainerPage() {
     <TooltipProvider delayDuration={150}>
     <div className="flex min-h-dvh flex-col bg-background bg-chip-grid">
       <AppHeader />
+      {onBack && (
+        <button type="button" onClick={onBack} className="self-start px-6 pt-2 text-base text-muted-foreground underline underline-offset-4 hover:text-foreground">
+          ← Back to the story
+        </button>
+      )}
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-3 sm:px-6">
         {race.status !== "finished" && <RaceControls
