@@ -43,7 +43,7 @@ export function Desk({ snapshot, anim }: { snapshot: MachineSnapshot; anim: Lane
                         >
                           {addr}
                         </span>
-                        <span className="h-5 text-sm leading-5 text-muted-foreground">
+                        <span className="h-9 w-24 text-center text-sm leading-[18px] text-muted-foreground">
                           {asked ? (justRead ? (last?.kind === "free-ride" ? "free ride!" : "read") : "asked") : justArrived && free ? "came along for free" : ""}
                         </span>
                       </span>
