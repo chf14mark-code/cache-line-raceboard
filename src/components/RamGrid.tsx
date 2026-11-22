@@ -39,7 +39,7 @@ export function RamGrid({ view }: { view: LaneView }) {
                   );
                 })}
               </div>
-              <span className="w-16 font-mono text-[10px] text-primary">{marker ? `◀ ${marker}` : ""}</span>
+              <span className="w-[4.5rem] whitespace-nowrap font-mono text-[10px] text-primary">{marker ? `◀ ${marker}` : ""}</span>
             </div>
           );
         })}

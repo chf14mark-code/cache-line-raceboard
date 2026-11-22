@@ -11,7 +11,7 @@ export const CELL_STATE_LABEL: Record<CellState, string> = {
   untouched: "Untouched",
   "in-cache": "In cache",
   "just-read": "Just read",
-  evicted: "Evicted from cache",
+  evicted: "Evicted",
 };
 
 /** Is memory line `line` currently held by the first cache level? */

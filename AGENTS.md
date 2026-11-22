@@ -36,3 +36,4 @@ use the editor.
 - `SPEC.md` at the repo root is the source of truth for machine behavior and reference results — later work must match it.
 - The app is a static front-end with no network requests or browser storage — fonts are system stacks and graphics are inline SVG.
 - Reference checks live once in `src/engine/selftest.ts`; `/selftest` displays them and `src/engine/engine.test.ts` asserts them, so the page and the tests can never disagree.
+- The race view advances both lanes only through `src/lib/race.ts` (`advanceRace` ticks both machines together); components just render engine snapshots — so the two cycle counters always share one clock.

@@ -48,7 +48,7 @@ export function CacheBox({ view }: { view: LaneView }) {
                     ))}
                   </div>
                 </td>
-                <td className="w-12 pl-1 text-primary">{justUsed ? "◀ used" : ""}</td>
+                <td className="w-14 whitespace-nowrap pl-1 text-primary">{justUsed ? "◀ used" : ""}</td>
               </tr>
             );
           })}
