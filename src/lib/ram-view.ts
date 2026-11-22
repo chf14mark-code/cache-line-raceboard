@@ -2,6 +2,7 @@
  * How a RAM cell / RAM row should be labelled, derived only from engine snapshots and events.
  */
 import { lineIndexOf } from "@/engine";
+import type { AccessMark } from "@/animation/tracker";
 import type { LaneView } from "./race";
 
 export type CellState = "just-read" | "in-cache" | "evicted" | "untouched";
@@ -30,10 +31,12 @@ export function cellState(view: LaneView, address: number): CellState {
 }
 
 /** Short text next to a RAM row: what is happening to that line right now, if anything. */
-export function rowMarker(view: LaneView, line: number): string | null {
+export function rowMarker(view: LaneView, last: AccessMark | null, line: number): string | null {
   const f = view.snapshot.inFlight;
   if (f && f.lineIndex === line) return f.level === "RAM" ? "fetching" : "cache hit";
-  const last = view.lastAccessAddress;
-  if (last !== null && lineIndexOf(last, view.snapshot.config.lineSize) === line) return "read";
+  if (last && last.line === line) {
+    if (last.kind === "miss") return "arrived";
+    return last.kind === "free-ride" ? "free ride" : "read";
+  }
   return null;
 }

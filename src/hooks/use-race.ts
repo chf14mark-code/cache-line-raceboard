@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { advanceRace, createRace, isRaceFinished, resetRace, viewRace, type Race } from "@/lib/race";
+import { classifyCycle, sharedCycleMs, type TimeMode } from "@/animation/pacing";
+import { AnimationTracker, type LaneAnimation } from "@/animation/tracker";
+import { createRace, isRaceFinished, resetRace, stepRace, viewRace, type LaneId, type Race } from "@/lib/race";
 
 export type RaceStatus = "ready" | "running" | "paused" | "finished";
 
@@ -7,44 +9,82 @@ export type RaceStatus = "ready" | "running" | "paused" | "finished";
 export const SPEEDS = [0.25, 0.5, 1, 2, 5, 10] as const;
 export type Speed = (typeof SPEEDS)[number];
 
-/** Clock rate at 1x: simulated cycles per real second. */
-const CYCLES_PER_SECOND = 60;
 /** Ignore long gaps (e.g. a background tab) so the race never jumps ahead. */
 const MAX_FRAME_MS = 100;
+/** Safety cap on cycles computed in one animation frame. */
+const MAX_STEPS_PER_FRAME = 5000;
+
+type Trackers = Record<LaneId, AnimationTracker>;
+
+/** Frozen animation marks for both lanes. */
+function viewAnimations(t: Trackers): Readonly<Record<LaneId, LaneAnimation>> {
+  return { a: t.a.view(), b: t.b.view() };
+}
 
 /**
- * Runs the race on one animation-frame loop. Every frame works out how many cycles
- * are due at the current speed and advances BOTH machines by exactly that many.
+ * Runs the race on one animation-frame loop with ONE shared clock.
+ * Each step advances both machines by exactly one cycle, then waits as long as
+ * the pacing rule says that cycle should stay on screen (scaled by speed).
  */
 export function useRace() {
   const raceRef = useRef<Race | null>(null);
   if (raceRef.current === null) raceRef.current = createRace();
   const race = raceRef.current;
 
+  const trackersRef = useRef<Trackers | null>(null);
+  if (trackersRef.current === null) trackersRef.current = { a: new AnimationTracker(), b: new AnimationTracker() };
+  const trackers = trackersRef.current;
+
+  /** Wall-clock budget (ms at 1x) and how long the cycle on screen still needs. */
+  const clockRef = useRef<{ budget: number; pendingMs: number | null }>({ budget: 0, pendingMs: null });
+
   const [view, setView] = useState(() => viewRace(race));
+  const [anim, setAnim] = useState(() => viewAnimations(trackers));
   const [status, setStatus] = useState<RaceStatus>("ready");
   const [speed, setSpeed] = useState<Speed>(1);
+  const [proportional, setProportional] = useState(false);
+
   const speedRef = useRef<Speed>(speed);
+  const modeRef = useRef<TimeMode>("compressed");
   useEffect(() => {
     speedRef.current = speed;
   }, [speed]);
+  useEffect(() => {
+    modeRef.current = proportional ? "proportional" : "compressed";
+  }, [proportional]);
 
   useEffect(() => {
     if (status !== "running") return;
+    const clock = clockRef.current;
     let frame = 0;
     let last: number | null = null;
-    let owed = 0; // fractional cycles carried to the next frame
+
     const tick = (now: number) => {
-      if (last !== null) {
-        owed += (Math.min(now - last, MAX_FRAME_MS) / 1000) * CYCLES_PER_SECOND * speedRef.current;
-        const due = Math.floor(owed);
-        if (due > 0) {
-          owed -= due;
-          advanceRace(race, due);
-          setView(viewRace(race));
-        }
-      }
+      if (last !== null) clock.budget += Math.min(now - last, MAX_FRAME_MS) * speedRef.current;
       last = now;
+
+      let stepped = false;
+      for (let guard = 0; guard < MAX_STEPS_PER_FRAME; guard++) {
+        if (clock.pendingMs === null) {
+          if (isRaceFinished(race)) break;
+          const r = stepRace(race);
+          stepped = true;
+          trackers.a.absorb(r.a.events, r.a.snapshot.config.lineSize);
+          trackers.b.absorb(r.b.events, r.b.snapshot.config.lineSize);
+          clock.pendingMs = sharedCycleMs(
+            [classifyCycle(r.a.events, r.a.snapshot), classifyCycle(r.b.events, r.b.snapshot)],
+            modeRef.current,
+          );
+        }
+        if (clock.budget < clock.pendingMs) break;
+        clock.budget -= clock.pendingMs;
+        clock.pendingMs = null;
+      }
+
+      if (stepped) {
+        setView(viewRace(race));
+        setAnim(viewAnimations(trackers));
+      }
       if (isRaceFinished(race)) {
         setStatus("finished");
         return;
@@ -53,25 +93,31 @@ export function useRace() {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [status, race]);
+  }, [status, race, trackers]);
+
+  /** Cold caches, cycle 0, no marks. */
+  const restart = useCallback(() => {
+    resetRace(race);
+    trackers.a.reset();
+    trackers.b.reset();
+    clockRef.current = { budget: 0, pendingMs: null };
+    setView(viewRace(race));
+    setAnim(viewAnimations(trackers));
+  }, [race, trackers]);
 
   const start = useCallback(() => {
-    if (status === "finished") {
-      resetRace(race);
-      setView(viewRace(race));
-    }
+    if (status === "finished") restart();
     setStatus("running");
-  }, [status, race]);
+  }, [status, restart]);
 
   const pause = useCallback(() => {
     setStatus((s) => (s === "running" ? "paused" : s));
   }, []);
 
   const reset = useCallback(() => {
-    resetRace(race);
-    setView(viewRace(race));
+    restart();
     setStatus("ready");
-  }, [race]);
+  }, [restart]);
 
-  return { view, status, speed, setSpeed, start, pause, reset };
+  return { view, anim, status, speed, setSpeed, proportional, setProportional, start, pause, reset };
 }

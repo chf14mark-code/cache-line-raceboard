@@ -185,3 +185,60 @@
     transparent 2px 5px
   );
 }
+
+/*
+ * Animation layer (driven by engine events; lengths come from --anim-ms).
+ * The reduced-motion rule above collapses these, and the UI also skips
+ * moving elements (packet, sliding eviction) entirely in that mode.
+ */
+@keyframes bus-pulse {
+  from {
+    background-color: var(--hit);
+    box-shadow: 0 0 10px 3px var(--hit);
+  }
+  to {
+    background-color: var(--track);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@keyframes line-glow {
+  from {
+    background-color: color-mix(in oklab, var(--primary) 35%, transparent);
+    box-shadow: 0 0 0 2px var(--primary), 0 0 18px 4px color-mix(in oklab, var(--primary) 70%, transparent);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 1px var(--primary), 0 0 0 0 transparent;
+  }
+}
+@keyframes cell-flash {
+  from {
+    box-shadow: 0 0 0 2px var(--hit), 0 0 10px 3px var(--hit);
+  }
+  to {
+    box-shadow: 0 0 0 1px var(--hit);
+  }
+}
+@keyframes evict-out {
+  0%,
+  35% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(64px);
+  }
+}
+@utility anim-bus-pulse {
+  animation: bus-pulse var(--anim-ms, 150ms) ease-out;
+}
+@utility anim-line-glow {
+  animation: line-glow var(--anim-ms, 600ms) ease-out;
+}
+@utility anim-cell-flash {
+  animation: cell-flash var(--anim-ms, 150ms) ease-out;
+}
+@utility anim-evict-out {
+  animation: evict-out var(--anim-ms, 600ms) ease-in forwards;
+}

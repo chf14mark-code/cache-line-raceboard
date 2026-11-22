@@ -66,19 +66,27 @@ export function isRaceFinished(race: Race): boolean {
   return LANE_IDS.every((id) => race.machines[id].getSnapshot().halted);
 }
 
-/**
- * Tick the shared clock `cycles` times. Each tick steps both machines by one cycle;
- * a machine that already finished just stays where it is.
- */
+/** What one lane produced in one shared cycle. */
+export interface LaneCycle {
+  readonly snapshot: MachineSnapshot;
+  readonly events: readonly MachineEvent[];
+}
+
+/** Tick the shared clock once: both machines step one cycle (a finished one stays put). */
+export function stepRace(race: Race): Readonly<Record<LaneId, LaneCycle>> {
+  const step = (id: LaneId): LaneCycle => {
+    const r = race.machines[id].stepCycle();
+    absorb(race.tracks[id], r.events);
+    return r;
+  };
+  return { a: step("a"), b: step("b") };
+}
+
+/** Tick the shared clock `cycles` times (stops early once both lanes are done). */
 export function advanceRace(race: Race, cycles: number): void {
   for (let i = 0; i < cycles; i++) {
-    let anyRunning = false;
-    for (const id of LANE_IDS) {
-      const { snapshot, events } = race.machines[id].stepCycle();
-      absorb(race.tracks[id], events);
-      if (!snapshot.halted) anyRunning = true;
-    }
-    if (!anyRunning) return;
+    const r = stepRace(race);
+    if (r.a.snapshot.halted && r.b.snapshot.halted) return;
   }
 }
 

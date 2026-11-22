@@ -1,59 +1,52 @@
-import { hexAddress, lineIndexOf } from "@/engine";
+import type { Ref } from "react";
+import { cacheCaption } from "@/animation/captions";
+import type { LaneAnimation } from "@/animation/tracker";
 import type { LaneView } from "@/lib/race";
 import { BoxTitle } from "./BoxTitle";
+import { CacheRow } from "./CacheRow";
 
-/** The L1 cache: one row per slot with valid bit, tag (memory line) and that line's cells. */
-export function CacheBox({ view }: { view: LaneView }) {
+/** The L1 cache: one row per slot, plus a sentence explaining the latest access. */
+export function CacheBox({
+  view,
+  anim,
+  speed,
+  reduced,
+  targetRef,
+}: {
+  view: LaneView;
+  anim: LaneAnimation;
+  speed: number;
+  reduced: boolean;
+  /** Where arriving line packets fly to. */
+  targetRef: Ref<HTMLDivElement>;
+}) {
   const { snapshot } = view;
   const l1 = snapshot.levels[0];
   if (!l1) return null;
-  const lineSize = snapshot.config.lineSize;
-  const usedLine = view.lastAccessAddress === null ? null : lineIndexOf(view.lastAccessAddress, lineSize);
+  const last = anim.lastAccess;
+  const ev = anim.lastEviction && last && anim.lastEviction.cycle === last.cycle ? anim.lastEviction : null;
 
   return (
     <div className="rounded-md border border-border bg-surface-raised p-2">
-      <BoxTitle note={`${l1.capacity} lines · ${l1.latency} cycles`}>{l1.name} cache</BoxTitle>
-      <table className="w-full border-separate border-spacing-y-0.5 font-mono text-[11px]">
-        <thead className="sr-only">
-          <tr>
-            <th>Slot</th>
-            <th>Valid</th>
-            <th>Tag (memory line)</th>
-            <th>Cells</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          {l1.lines.map((line, slot) => {
-            const justUsed = line.valid && line.tag === usedLine;
-            const first = line.tag * lineSize;
-            return (
-              <tr key={slot} className={line.valid ? "text-foreground" : "text-muted-foreground"}>
-                <td className="w-6 text-muted-foreground">#{slot}</td>
-                <td className="w-12">{line.valid ? "valid" : "empty"}</td>
-                <td className="w-28 whitespace-nowrap">
-                  {line.valid ? `line ${line.tag} · ${hexAddress(first)}` : "—"}
-                </td>
-                <td>
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: lineSize }, (_, k) => (
-                      <span
-                        key={k}
-                        className={`flex h-4 min-w-7 flex-1 items-center justify-center rounded-sm border tabular-nums ${
-                          line.valid ? "border-accent bg-accent/15" : "border-dashed border-border"
-                        }`}
-                      >
-                        {line.valid ? snapshot.ram[first + k] : "·"}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="w-14 whitespace-nowrap pl-1 text-primary">{justUsed ? "◀ used" : ""}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <BoxTitle note={`${l1.capacity} lines · ${l1.latency} cycles · LRU`}>{l1.name} cache</BoxTitle>
+      <div ref={targetRef} role="table" aria-label={`${l1.name} cache contents`} className="flex flex-col gap-0.5 font-mono text-[11px]">
+        {l1.lines.map((line, slot) => (
+          <CacheRow
+            key={slot}
+            slot={slot}
+            line={line}
+            lineSize={snapshot.config.lineSize}
+            ram={snapshot.ram}
+            last={last}
+            freeCells={anim.freeCells}
+            eviction={ev && ev.slot === slot ? ev : null}
+            hitLatency={l1.latency}
+            speed={speed}
+            reduced={reduced}
+          />
+        ))}
+      </div>
+      <p className="mt-1 min-h-8 text-[11px] leading-snug text-muted-foreground">{cacheCaption(snapshot, anim)}</p>
     </div>
   );
 }
