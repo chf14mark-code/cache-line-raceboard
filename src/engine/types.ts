@@ -153,6 +153,8 @@ export interface MachineSnapshot {
   readonly pc: number;
   /** R0..R3, each 0..65535. */
   readonly registers: readonly [number, number, number, number];
+  /** Instruction register: text of the instruction fetched last ("" before the first fetch). */
+  readonly ir: string;
   /** True when the CPU is waiting on memory and will keep waiting next cycle. */
   readonly stalling: boolean;
   /** The LOAD/STORE in progress, if any. */
@@ -192,7 +194,33 @@ export type MachineEvent =
   | (EventBase & { readonly kind: "memory-wait-start"; readonly details: { readonly op: "LOAD" | "STORE"; readonly level: MemoryLevelName; readonly latency: number; readonly address: number } })
   | (EventBase & { readonly kind: "memory-wait-end"; readonly details: { readonly op: "LOAD" | "STORE"; readonly level: MemoryLevelName; readonly latency: number; readonly address: number; readonly value: number } })
   | (EventBase & { readonly kind: "jump"; readonly details: { readonly from: number; readonly to: number; readonly taken: boolean } })
-  | (EventBase & { readonly kind: "program-end"; readonly details: { readonly reason: HaltReason; readonly message: string | null } });
+  | (EventBase & { readonly kind: "program-end"; readonly details: { readonly reason: HaltReason; readonly message: string | null } })
+  | PhaseEvent;
+
+/** Which unit an instruction is decoded for. */
+export type ExecUnit = "ALU" | "LSU" | "CU";
+
+/** Structured EXECUTE details, one shape per unit. */
+export type ExecuteDetails =
+  | { readonly unit: "ALU"; readonly op: "ADD" | "SUB"; readonly a: number; readonly b: number; readonly result: number; readonly detail: string }
+  /** LSU: emitted at the first cycle (stage "start", level = first level searched) and the last cycle (stage "end", level that answered). */
+  | { readonly unit: "LSU"; readonly op: "LOAD" | "STORE"; readonly address: number; readonly level: MemoryLevelName; readonly stage: "start" | "end"; readonly detail: string }
+  | { readonly unit: "CU"; readonly op: "MOV"; readonly detail: string }
+  | { readonly unit: "CU"; readonly op: "JNZ"; readonly detail: string; readonly registerValue: number; readonly taken: boolean };
+
+/** Structured WRITE-BACK details. */
+export type WritebackDetails =
+  | { readonly target: "register"; readonly name: string; readonly oldValue: number; readonly newValue: number }
+  | { readonly target: "memory"; readonly address: number; readonly oldValue: number; readonly newValue: number }
+  | { readonly target: "none" };
+
+/** Instruction-cycle phase events (display sub-steps; they never add cycles). */
+export type PhaseEvent =
+  | (EventBase & { readonly kind: "fetch"; readonly details: { readonly pc: number; readonly text: string } })
+  | (EventBase & { readonly kind: "pc-update"; readonly details: { readonly from: number; readonly to: number; readonly reason: "sequential" | "jump-taken" | "jump-not-taken" } })
+  | (EventBase & { readonly kind: "decode"; readonly details: { readonly opcode: Opcode; readonly operands: readonly string[]; readonly unit: ExecUnit } })
+  | (EventBase & { readonly kind: "execute"; readonly details: ExecuteDetails })
+  | (EventBase & { readonly kind: "writeback"; readonly details: WritebackDetails });
 
 export type MachineEventKind = MachineEvent["kind"];
 

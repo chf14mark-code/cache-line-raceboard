@@ -15,6 +15,7 @@ import { CacheLevel } from "./cache";
 import { LINE_SIZES, lineIndexOf } from "./config";
 import type {
   CacheLevelName,
+  ExecUnit,
   HaltReason,
   Instruction,
   LevelCounters,
@@ -72,6 +73,8 @@ export class Machine {
   private cycle = 0;
   private pc = 0;
   private regs: [number, number, number, number] = [0, 0, 0, 0];
+  /** Instruction register: text of the last fetched instruction. */
+  private ir = "";
   private ram: number[];
   private inFlight: InFlight | null = null;
   private halted = false;
@@ -115,6 +118,7 @@ export class Machine {
     this.cycle = 0;
     this.pc = 0;
     this.regs = [0, 0, 0, 0];
+    this.ir = "";
     this.ram = initialRam(this.config.memorySize);
     this.inFlight = null;
     this.halted = false;
@@ -213,6 +217,7 @@ export class Machine {
       cycle: this.cycle,
       pc: this.pc,
       registers: Object.freeze([...this.regs]) as unknown as readonly [number, number, number, number],
+      ir: this.ir,
       stalling: f !== null && f.elapsed < f.latency,
       inFlight:
         f === null
@@ -268,14 +273,26 @@ export class Machine {
     const ins = this.program[this.pc];
     if (ins === undefined) return; // PC already past the end; stepCycle will halt
     const c = this.cycle;
-    events.push(Object.freeze({ cycle: c, kind: "instruction-start", details: Object.freeze({ pc: this.pc, text: ins.text }) }));
+    const pc = this.pc;
+    events.push(Object.freeze({ cycle: c, kind: "instruction-start", details: Object.freeze({ pc, text: ins.text }) }));
+
+    // FETCH: copy the instruction into IR. Program memory is separate and always
+    // answers instantly (think: an instruction cache that always hits), so no ticks.
+    this.ir = ins.text;
+    events.push(Object.freeze({ cycle: c, kind: "fetch", details: Object.freeze({ pc, text: ins.text }) }));
+    // PC moves to the next line right after fetch. A taken JNZ overrides it later.
+    events.push(Object.freeze({ cycle: c, kind: "pc-update", details: Object.freeze({ from: pc, to: pc + 1, reason: "sequential" as const }) }));
+    // DECODE: work out which unit will do the job.
+    events.push(Object.freeze({ cycle: c, kind: "decode", details: Object.freeze({ opcode: ins.op, operands: Object.freeze(operandsOf(ins)), unit: unitOf(ins.op) }) }));
 
     switch (ins.op) {
       case "MOV": {
         const before = this.regs[ins.rd];
         const after = this.valueOf(ins.src) & MASK_16;
+        events.push(Object.freeze({ cycle: c, kind: "execute", details: Object.freeze({ unit: "CU" as const, op: "MOV" as const, detail: `copy ${after} into R${ins.rd}` }) }));
         this.regs[ins.rd] = after;
         events.push(Object.freeze({ cycle: c, kind: "register-write", details: Object.freeze({ rd: ins.rd, before, after }) }));
+        events.push(Object.freeze({ cycle: c, kind: "writeback", details: Object.freeze({ target: "register" as const, name: `R${ins.rd}`, oldValue: before, newValue: after }) }));
         this.completeSimple();
         return;
       }
@@ -285,17 +302,25 @@ export class Machine {
         const value = this.valueOf(ins.src);
         // "& 0xFFFF" wraps around like a real 16-bit register (65535 + 1 = 0, 0 - 1 = 65535).
         const after = (ins.op === "ADD" ? before + value : before - value) & MASK_16;
+        const sign = ins.op === "ADD" ? "+" : "-";
+        const bName = ins.src.kind === "reg" ? `R${ins.src.reg}` : String(value);
+        events.push(Object.freeze({ cycle: c, kind: "execute", details: Object.freeze({ unit: "ALU" as const, op: ins.op, a: before, b: value, result: after, detail: `R${ins.rd} ${sign} ${bName} = ${after}` }) }));
         this.regs[ins.rd] = after;
         this.aluBusyCycles += 1;
         events.push(Object.freeze({ cycle: c, kind: "alu-op", details: Object.freeze({ op: ins.op, rd: ins.rd, before, after }) }));
+        events.push(Object.freeze({ cycle: c, kind: "writeback", details: Object.freeze({ target: "register" as const, name: `R${ins.rd}`, oldValue: before, newValue: after }) }));
         this.completeSimple();
         return;
       }
       case "JNZ": {
-        const from = this.pc;
-        const taken = this.regs[ins.rs] !== 0;
-        const to = taken ? ins.target : from + 1;
-        events.push(Object.freeze({ cycle: c, kind: "jump", details: Object.freeze({ from, to, taken }) }));
+        const from = pc + 1; // PC already points at the next line after fetch
+        const registerValue = this.regs[ins.rs];
+        const taken = registerValue !== 0;
+        const to = taken ? ins.target : from;
+        events.push(Object.freeze({ cycle: c, kind: "execute", details: Object.freeze({ unit: "CU" as const, op: "JNZ" as const, detail: taken ? `R${ins.rs} != 0 so jump` : `R${ins.rs} = 0 so do not jump`, registerValue, taken }) }));
+        events.push(Object.freeze({ cycle: c, kind: "pc-update", details: Object.freeze({ from, to, reason: taken ? ("jump-taken" as const) : ("jump-not-taken" as const) }) }));
+        events.push(Object.freeze({ cycle: c, kind: "jump", details: Object.freeze({ from: pc, to, taken }) }));
+        events.push(Object.freeze({ cycle: c, kind: "writeback", details: Object.freeze({ target: "none" as const }) }));
         this.instructionsExecuted += 1;
         this.pc = to;
         return;
@@ -330,6 +355,7 @@ export class Machine {
       return;
     }
     const lineIndex = lineIndexOf(address, this.config.lineSize);
+    events.push(Object.freeze({ cycle: c, kind: "execute", details: Object.freeze({ unit: "LSU" as const, op: ins.op, address, level: this.levelName(0), stage: "start" as const, detail: `search ${this.levelName(0)} for address ${address}` }) }));
 
     let foundLevel = -1;
     for (let i = 0; i < this.levels.length; i++) {
@@ -395,12 +421,19 @@ export class Machine {
     // 3. Move the data.
     const ins = this.program[f.instructionIndex];
     let value = 0;
+    let writeback: MachineEvent | null = null;
+    const answered = this.levelName(f.foundLevel);
+    events.push(Object.freeze({ cycle: c, kind: "execute", details: Object.freeze({ unit: "LSU" as const, op: f.op, address: f.address, level: answered, stage: "end" as const, detail: `data for address ${f.address} arrived from ${answered}` }) }));
     if (ins?.op === "LOAD") {
+      const oldValue = this.regs[ins.rd];
       value = this.ram[f.address] ?? 0;
       this.regs[ins.rd] = value;
+      writeback = Object.freeze({ cycle: c, kind: "writeback", details: Object.freeze({ target: "register" as const, name: `R${ins.rd}`, oldValue, newValue: value }) });
     } else if (ins?.op === "STORE") {
+      const oldValue = this.ram[f.address] ?? 0;
       value = this.regs[ins.rs];
       this.ram[f.address] = value;
+      writeback = Object.freeze({ cycle: c, kind: "writeback", details: Object.freeze({ target: "memory" as const, address: f.address, oldValue, newValue: value }) });
     }
     events.push(
       Object.freeze({
@@ -410,8 +443,34 @@ export class Machine {
       }),
     );
 
+    if (writeback) events.push(writeback);
+
     this.inFlight = null;
     this.instructionsExecuted += 1;
     this.pc += 1;
+  }
+}
+
+/** Decode table: which unit handles each opcode. */
+function unitOf(op: Instruction["op"]): ExecUnit {
+  if (op === "ADD" || op === "SUB") return "ALU";
+  if (op === "LOAD" || op === "STORE") return "LSU";
+  return "CU"; // MOV and JNZ
+}
+
+/** Operand texts as written, e.g. ["R3", "R1"] or ["R1", "[R2]"]. */
+function operandsOf(ins: Instruction): string[] {
+  const op = (o: Operand) => (o.kind === "reg" ? `R${o.reg}` : String(o.value));
+  switch (ins.op) {
+    case "MOV":
+    case "ADD":
+    case "SUB":
+      return [`R${ins.rd}`, op(ins.src)];
+    case "LOAD":
+      return [`R${ins.rd}`, `[${op(ins.addr)}]`];
+    case "STORE":
+      return [`R${ins.rs}`, `[${op(ins.addr)}]`];
+    case "JNZ":
+      return [`R${ins.rs}`, String(ins.target)];
   }
 }
